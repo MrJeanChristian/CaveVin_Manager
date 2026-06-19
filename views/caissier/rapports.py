@@ -8,7 +8,7 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from config import COLORS, FONTS
 from database.db import db
-from utils.pdf_ticket import generer_ticket_pdf, ouvrir_pdf
+from utils.pdf_ticket import generer_ticket_pdf
 
 TICKETS_DIR = os.path.join(os.path.expanduser("~"), "CaveVin_Tickets")
 os.makedirs(TICKETS_DIR, exist_ok=True)

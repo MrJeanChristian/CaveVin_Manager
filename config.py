@@ -3,12 +3,12 @@
 # ============================================================
 
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 3306,
-    "user": "jeanchristian",
+    "host":     "localhost",
+    "port":     3306,
+    "user":     "jeanchristian",
     "password": "ChristiaN12.",
-    "database": "caveVin",
-    "charset": "utf8mb4",
+    "database": "cave_vin",
+    "charset":  "utf8mb4",
     "autocommit": False,
 }
 
