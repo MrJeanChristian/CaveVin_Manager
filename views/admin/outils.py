@@ -35,21 +35,64 @@ class OutilsView(ctk.CTkFrame):
 
         ctk.CTkLabel(excel_card, text="  Export Excel",
                      font=FONTS["heading"], text_color=C["gold"]).pack(anchor="w", padx=20, pady=(18, 4))
-        ctk.CTkLabel(excel_card, text="Génère un rapport complet mensuel en .xlsx\navec 5 feuilles : Résumé, Ventes, Boissons, Manquants, Déductions.",
-                     font=FONTS["small"], text_color=C["text_muted"], justify="left").pack(anchor="w", padx=20, pady=(0, 16))
+        ctk.CTkLabel(excel_card,
+                     text="Rapport .xlsx avec 5 feuilles : Résumé, Ventes, Boissons, Manquants, Déductions.",
+                     font=FONTS["small"], text_color=C["text_muted"], justify="left").pack(
+                     anchor="w", padx=20, pady=(0, 12))
 
-        ctk.CTkLabel(excel_card, text="Mois (YYYY-MM) :", font=FONTS["body"],
-                     text_color=C["text_muted"], anchor="w").pack(fill="x", padx=20)
-        self.e_mois_excel = ctk.CTkEntry(excel_card, height=36,
+        # Choix du type de rapport
+        ctk.CTkLabel(excel_card, text="Type de rapport :",
+                     font=FONTS["body"], text_color=C["text_muted"], anchor="w").pack(
+                     fill="x", padx=20, pady=(0, 4))
+        self.type_rapport = ctk.StringVar(value="mensuel")
+        type_row = ctk.CTkFrame(excel_card, fg_color="transparent")
+        type_row.pack(fill="x", padx=20, pady=(0, 12))
+        for val, label in [("journalier","Journalier"), ("mensuel","Mensuel"), ("annuel","Annuel")]:
+            ctk.CTkRadioButton(type_row, text=label, variable=self.type_rapport,
+                                value=val, font=FONTS["body"], text_color=C["text"],
+                                fg_color=C["accent"],
+                                command=self._on_type_rapport_change).pack(side="left", padx=(0,16))
+
+        # Zone date journalier
+        self.frame_jour = ctk.CTkFrame(excel_card, fg_color="transparent")
+        ctk.CTkLabel(self.frame_jour, text="Date (YYYY-MM-DD) :",
+                     font=FONTS["small"], text_color=C["text_muted"], anchor="w").pack(
+                     fill="x", padx=20, pady=(0,2))
+        self.e_date_excel = ctk.CTkEntry(self.frame_jour, height=36,
+                                          fg_color=C["bg_dark"], border_color=C["border"],
+                                          text_color=C["text"], font=FONTS["body"])
+        self.e_date_excel.insert(0, date.today().strftime("%Y-%m-%d"))
+        self.e_date_excel.pack(fill="x", padx=20, pady=(0,8))
+
+        # Zone date mensuel
+        self.frame_mois = ctk.CTkFrame(excel_card, fg_color="transparent")
+        ctk.CTkLabel(self.frame_mois, text="Mois (YYYY-MM) :",
+                     font=FONTS["small"], text_color=C["text_muted"], anchor="w").pack(
+                     fill="x", padx=20, pady=(0,2))
+        self.e_mois_excel = ctk.CTkEntry(self.frame_mois, height=36,
                                           fg_color=C["bg_dark"], border_color=C["border"],
                                           text_color=C["text"], font=FONTS["body"])
         self.e_mois_excel.insert(0, date.today().strftime("%Y-%m"))
-        self.e_mois_excel.pack(fill="x", padx=20, pady=(4, 12))
+        self.e_mois_excel.pack(fill="x", padx=20, pady=(0,8))
+
+        # Zone date annuel
+        self.frame_annee = ctk.CTkFrame(excel_card, fg_color="transparent")
+        ctk.CTkLabel(self.frame_annee, text="Année (YYYY) :",
+                     font=FONTS["small"], text_color=C["text_muted"], anchor="w").pack(
+                     fill="x", padx=20, pady=(0,2))
+        self.e_annee_excel = ctk.CTkEntry(self.frame_annee, height=36,
+                                           fg_color=C["bg_dark"], border_color=C["border"],
+                                           text_color=C["text"], font=FONTS["body"])
+        self.e_annee_excel.insert(0, date.today().strftime("%Y"))
+        self.e_annee_excel.pack(fill="x", padx=20, pady=(0,8))
+
+        # Afficher le bon frame par défaut
+        self.frame_mois.pack(fill="x")
 
         ctk.CTkButton(excel_card, text="  Générer et enregistrer...", height=42,
                       fg_color=C["accent"], hover_color=C["accent2"],
                       text_color=C["white"], font=("Helvetica", 12, "bold"),
-                      command=self._export_excel).pack(fill="x", padx=20, pady=(0, 8))
+                      command=self._export_excel).pack(fill="x", padx=20, pady=(4, 8))
         ctk.CTkButton(excel_card, text="  Ouvrir dossier exports", height=36,
                       fg_color="transparent", hover_color=C["bg_sidebar"],
                       border_width=1, border_color=C["border"],
@@ -125,30 +168,64 @@ class OutilsView(ctk.CTkFrame):
                       text_color=C["text"], font=FONTS["body"],
                       command=self._ouvrir_dossier_bk).pack(side="left")
 
+    # ---- Toggle affichage champ date selon type ----
+    def _on_type_rapport_change(self):
+        for frame in [self.frame_jour, self.frame_mois, self.frame_annee]:
+            frame.pack_forget()
+        t = self.type_rapport.get()
+        if t == "journalier":
+            self.frame_jour.pack(fill="x")
+        elif t == "mensuel":
+            self.frame_mois.pack(fill="x")
+        elif t == "annuel":
+            self.frame_annee.pack(fill="x")
+
     # ---- Export Excel ----
     def _export_excel(self):
-        mois = self.e_mois_excel.get().strip()
-        if not mois:
-            self.lbl_excel_status.configure(text="Entrez un mois (YYYY-MM).",
-                                             text_color=COLORS["danger"]); return
+        from utils.export_excel import exporter_rapport_mensuel, exporter_rapport_journalier, exporter_rapport_annuel
+        type_r = self.type_rapport.get()
+
+        if type_r == "journalier":
+            periode = self.e_date_excel.get().strip()
+            if not periode:
+                self.lbl_excel_status.configure(text="Entrez une date (YYYY-MM-DD).",
+                                                 text_color=COLORS["danger"]); return
+            init_file = f"rapport_journalier_{periode}.xlsx"
+            fn_export  = lambda chemin: exporter_rapport_journalier(db, periode, chemin)
+
+        elif type_r == "mensuel":
+            periode = self.e_mois_excel.get().strip()
+            if not periode:
+                self.lbl_excel_status.configure(text="Entrez un mois (YYYY-MM).",
+                                                 text_color=COLORS["danger"]); return
+            init_file = f"rapport_mensuel_{periode}.xlsx"
+            fn_export  = lambda chemin: exporter_rapport_mensuel(db, periode, chemin)
+
+        elif type_r == "annuel":
+            periode = self.e_annee_excel.get().strip()
+            if not periode:
+                self.lbl_excel_status.configure(text="Entrez une année (YYYY).",
+                                                 text_color=COLORS["danger"]); return
+            init_file = f"rapport_annuel_{periode}.xlsx"
+            fn_export  = lambda chemin: exporter_rapport_annuel(db, periode, chemin)
+
         chemin = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
             filetypes=[("Excel", "*.xlsx")],
-            initialfile=f"rapport_{mois}.xlsx",
+            initialfile=init_file,
             title="Enregistrer le rapport Excel"
         )
         if not chemin: return
 
         self.lbl_excel_status.configure(text="Génération en cours...", text_color=COLORS["gold"])
         self.update()
+
         def do():
             try:
-                from utils.export_excel import exporter_rapport_mensuel
-                exporter_rapport_mensuel(db, mois, chemin)
+                fn_export(chemin)
                 nom = os.path.basename(chemin)
                 self.after(0, lambda n=nom: self.lbl_excel_status.configure(
-                    text=f"  Exporte : {n}",
-                    text_color=COLORS["success"]))
+                    text=f"  Exporté : {n}", text_color=COLORS["success"]))
                 import subprocess, platform
                 if platform.system() == "Linux":
                     subprocess.Popen(["xdg-open", chemin])
@@ -156,6 +233,7 @@ class OutilsView(ctk.CTkFrame):
                 msg = str(e)
                 self.after(0, lambda m=msg: self.lbl_excel_status.configure(
                     text=f"Erreur : {m}", text_color=COLORS["danger"]))
+
         threading.Thread(target=do, daemon=True).start()
 
     def _ouvrir_dossier_exports(self):

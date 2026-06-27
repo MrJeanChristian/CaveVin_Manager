@@ -19,6 +19,7 @@ from views.admin.boissons    import BoissonsView
 from views.admin.employes    import EmployesView
 from views.admin.graphiques  import GraphiquesView
 from views.admin.outils      import OutilsView
+from views.admin.config_mail import ConfigMailView
 from views.admin.imprimante  import ImprimanteView
 from views.caissier.dashboard  import CaissierDashboard
 from views.caissier.tickets    import TicketsView
@@ -59,6 +60,7 @@ class MainWindow(ctk.CTk):
                 ("Graphiques",       "📈", self._show_graphiques),
                 ("Export & Backup",  "💾", self._show_outils),
                 ("Imprimante",       "🖨", self._show_imprimante),
+                ("Configuration Mail",      "📧", self._show_config_mail),
                 ("Mon profil",       "🔑", self._show_profil),
             ]
         elif role == "caissier":
@@ -84,6 +86,15 @@ class MainWindow(ctk.CTk):
         ctk.CTkFrame(self, fg_color=COLORS["border"], width=1).pack(side="left", fill="y")
 
         self.content.pack(side="left", fill="both", expand=True)
+
+        # Intercepter la fermeture par la croix
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self):
+        if self.user["role"] == "caissier":
+            self._envoyer_rapport_et_quitter(action="close")
+        else:
+            self.destroy()
 
     # ---------------------------------------------------------------- Vues --
     def _clear_content(self):
@@ -134,13 +145,54 @@ class MainWindow(ctk.CTk):
         self._clear_content()
         ServeurDashboard(self.content, self.user).pack(fill="both", expand=True)
 
+    def _show_config_mail(self):
+        self._clear_content()
+        ConfigMailView(self.content).pack(fill="both", expand=True)
+
     def _show_profil(self):
         self._clear_content()
         ProfilView(self.content, self.user).pack(fill="both", expand=True)
 
     def _logout(self):
+        if self.user["role"] == "caissier":
+            self._envoyer_rapport_et_quitter(action="logout")
+        else:
+            self.destroy()
+            start()
+
+    def _envoyer_rapport_et_quitter(self, action="logout"):
+        """Génère le rapport Excel du jour et l'envoie par mail en arrière-plan."""
+        import threading, os, tempfile
+        from datetime import date
+        from utils.mailer import envoyer_rapport_journalier, MAIL_CONFIG
+        from database.db import db
+
+        caissier_nom = f"{self.user['prenom']} {self.user['nom']}"
+
+        def _do():
+            xlsx_path = None
+            try:
+                # Générer le rapport Excel du jour
+                mois = date.today().strftime("%Y-%m")
+                tmp  = tempfile.mkdtemp()
+                xlsx_path = os.path.join(tmp, f"rapport_journalier_{date.today()}.xlsx")
+                from utils.export_excel import exporter_rapport_mensuel
+                exporter_rapport_mensuel(db, mois, xlsx_path)
+            except Exception as e:
+                print(f"[MAIL] Erreur génération Excel : {e}")
+
+            # Envoi mail (silencieux, peu importe si Excel a échoué)
+            envoyer_rapport_journalier(db, caissier_nom, xlsx_path)
+
+        if MAIL_CONFIG.get("actif"):
+            t = threading.Thread(target=_do, daemon=True)
+            t.start()
+            # Laisser 3 secondes max pour l'envoi avant de fermer
+            t.join(timeout=3)
+
         self.destroy()
-        start()
+        if action == "logout":
+            start()
 
 
 def on_login_success(user: dict):

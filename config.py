@@ -7,12 +7,12 @@ DB_CONFIG = {
     "port":     3306,
     "user":     "jeanchristian",
     "password": "ChristiaN12.",
-    "database": "cave_vin",
+    "database": "cave_A_Vin",
     "charset":  "utf8mb4",
     "autocommit": False,
 }
 
-APP_NAME    = "CaveVin Manager"
+APP_NAME    = "Cave OUEDRAOGO"
 APP_VERSION = "1.0.0"
 WINDOW_SIZE = "1280x780"
 

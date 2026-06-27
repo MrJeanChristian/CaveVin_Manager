@@ -38,6 +38,7 @@ TABLES = [
         prix_achat  DECIMAL(10,2) DEFAULT 0.00,
         stock       INT          DEFAULT 0,
         unite       VARCHAR(30)  DEFAULT 'bouteille',
+        photo_path  VARCHAR(500) DEFAULT NULL,
         actif       TINYINT(1)   DEFAULT 1,
         created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
