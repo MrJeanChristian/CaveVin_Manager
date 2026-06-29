@@ -64,9 +64,9 @@ def generer_ticket_pdf(ticket: dict, lignes: list, output_path: str = None) -> s
 
     # -- EN-TETE --
     y -= 6 * MM
-    text("CAVE A VIN", TICKET_W / 2, y, "Helvetica-Bold", 13, ROUGE_VIN, "center")
+    text("CAVE OUEDRAOGO", TICKET_W / 2, y, "Helvetica-Bold", 13, ROUGE_VIN, "center")
     y -= 5 * MM
-    text("CaveVin Manager", TICKET_W / 2, y, "Helvetica", 7, GRIS, "center")
+    text("Cave A Vin", TICKET_W / 2, y, "Helvetica", 7, GRIS, "center")
     y -= 5 * MM
     line(MARGIN, y, TICKET_W - MARGIN, y, ROUGE_VIN, 1.2)
 

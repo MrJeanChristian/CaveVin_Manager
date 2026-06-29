@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # ============================================================
 # main.py — Point d'entrée CaveVin Manager v2.0
 # ============================================================
@@ -54,21 +53,21 @@ class MainWindow(ctk.CTk):
 
         if role == "admin":
             menu = [
-                ("Tableau de bord", "🏠", self._show_admin_home),
-                ("Boissons & Prix",  "🍾", self._show_boissons),
+                ("Dashboard", "🏠", self._show_admin_home),
+                ("Boisson&Prix",  "🍾", self._show_boissons),
                 ("Employés",         "👥", self._show_employes),
                 ("Graphiques",       "📈", self._show_graphiques),
-                ("Export & Backup",  "💾", self._show_outils),
+                ("Exports",  "💾", self._show_outils),
                 ("Imprimante",       "🖨", self._show_imprimante),
-                ("Configuration Mail",      "📧", self._show_config_mail),
+                ("Config Mail",      "📧", self._show_config_mail),
                 ("Mon profil",       "🔑", self._show_profil),
             ]
         elif role == "caissier":
             menu = [
                 ("Accueil",          "🏠", self._show_caissier_home),
-                ("Saisir un ticket", "🧾", self._show_tickets),
-                ("Historique",       "📄", self._show_historique),
-                ("Rapports",         "📊", self._show_rapports),
+                ("Saisie ticket", "🧾", self._show_tickets),
+                ("Rapports", "📊", self._show_rapports),
+                ("Graphiques",       "📈", self._show_graphiques),
                 ("Mon profil",       "🔑", self._show_profil),
             ]
         else:  # serveur

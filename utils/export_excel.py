@@ -95,7 +95,7 @@ def _sheet_resume(wb, db, mois):
 
     ws.merge_cells("A2:F2")
     c = ws["A2"]
-    c.value     = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — CaveVin Manager"
+    c.value     = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Cave OUEDRAOGO"
     c.font      = _font(size=9, color=C_GRIS, italic=True)
     c.fill      = _fill(C_DARK)
     c.alignment = _center()
@@ -445,7 +445,7 @@ def exporter_rapport_journalier(db, jour: str, output_path: str = None) -> str:
 
     ws.merge_cells("A2:F2")
     c = ws["A2"]
-    c.value     = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — CaveVin Manager"
+    c.value     = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} — Cave OUEDRAOGO"
     c.font      = _font(size=9, color=C_GRIS, italic=True)
     c.fill      = _fill(C_DARK)
     c.alignment = _center()

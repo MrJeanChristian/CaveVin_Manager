@@ -19,7 +19,7 @@ class AdminDashboard(ctk.CTkFrame):
     def _build(self):
         C = COLORS
         # Titre
-        ctk.CTkLabel(self, text=f"🏠  Tableau de bord — Bonjour {self.user['prenom']} !",
+        ctk.CTkLabel(self, text=f"🏠  Tableau de bord — Bienvenue {self.user['prenom']} !",
                      font=FONTS["heading"], text_color=C["gold"]).pack(anchor="w", padx=24, pady=(20,16))
 
         # KPI cards

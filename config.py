@@ -12,7 +12,7 @@ DB_CONFIG = {
     "autocommit": False,
 }
 
-APP_NAME    = "Cave OUEDRAOGO"
+APP_NAME    = "CAVE OUEDRAOGO"
 APP_VERSION = "1.0.0"
 WINDOW_SIZE = "1280x780"
 
@@ -33,12 +33,12 @@ COLORS = {
 }
 
 FONTS = {
-    "title":   ("Georgia", 22, "bold"),
-    "heading": ("Georgia", 15, "bold"),
-    "body":    ("Helvetica", 12),
-    "small":   ("Helvetica", 10),
-    "mono":    ("Courier New", 11),
-    "badge":   ("Helvetica", 10, "bold"),
+    "title":   ("Georgia", 32, "bold"),
+    "heading": ("Georgia", 28, "bold"),
+    "body":    ("Helvetica", 22),
+    "small":   ("Helvetica", 16),
+    "mono":    ("Courier New", 22),
+    "badge":   ("Helvetica", 20, "bold"),
 }
 
 # Rôles utilisateurs

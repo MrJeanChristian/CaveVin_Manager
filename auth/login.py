@@ -37,7 +37,7 @@ class LoginWindow(ctk.CTk):
         card = ctk.CTkFrame(self, fg_color=COLORS["bg_card"],
                             corner_radius=16, border_width=1,
                             border_color=COLORS["border"])
-        card.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.82, relheight=0.88)
+        card.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.82, relheight=0.92)
 
         # Logo / icône vin
         lbl_icon = ctk.CTkLabel(card, text="🍷", font=("Helvetica", 52))
@@ -86,12 +86,12 @@ class LoginWindow(ctk.CTk):
                              fg_color=COLORS["accent"],
                              hover_color=COLORS["accent2"],
                              text_color=COLORS["white"],
-                             font=("Helvetica", 13, "bold"),
+                             font=("Helvetica", 18, "bold"),
                              command=self._login)
         btn.pack(fill="x", padx=32, pady=(0, 24))
 
         # Footer
-        ctk.CTkLabel(card, text=f"v1.0.0 — © 2025 CaveVin",
+        ctk.CTkLabel(card, text=f"v1.0.0 — ©2026 Cave-Manager by Jean Christian",
                      font=FONTS["small"], text_color=COLORS["text_muted"]).pack(side="bottom", pady=12)
 
     def _login(self):
