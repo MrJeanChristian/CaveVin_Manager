@@ -1,13 +1,11 @@
 # ============================================================
 # database/db.py — Connexion MySQL + helpers
 # ============================================================
-
 import mysql.connector
 from mysql.connector import Error
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import DB_CONFIG
-
 
 class Database:
     _instance = None
@@ -65,6 +63,28 @@ class Database:
 
     def lastrowid(self):
         return self.cursor.lastrowid
+
+    def init_tables(self):
+        """
+        Crée les tables système si elles n'existent pas.
+        À appeler une fois au démarrage dans main.py.
+        """
+        tables = [
+            # Table paramètres — stockage config mail et autres réglages
+            """
+            CREATE TABLE IF NOT EXISTS parametres (
+                cle    VARCHAR(100) PRIMARY KEY,
+                valeur TEXT
+            )
+            """,
+        ]
+        for sql in tables:
+            try:
+                self.cursor.execute(sql)
+            except Error as e:
+                print(f"[DB] Erreur init_tables : {e}")
+        self.conn.commit()
+        print("[DB] Tables système vérifiées/créées.")
 
 
 # Singleton global

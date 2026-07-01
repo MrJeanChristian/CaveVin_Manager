@@ -89,10 +89,6 @@ def imprimer_ticket(ticket: dict, lignes: list) -> bool:
     """
     Imprime un ticket sur l'imprimante thermique.
 
-    ticket  : dict {numero, date_vente, total, montant_recu,
-                    serveur_nom, caissier_nom, notes}
-    lignes  : list de dicts {nom, quantite, prix_unit, sous_total}
-
     Retourne True si succès, False sinon.
     """
     cols = PRINTER_CONFIG["columns"]

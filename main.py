@@ -10,6 +10,7 @@ from config import APP_NAME, WINDOW_SIZE, COLORS, FONTS
 from database.db import db
 from database.models import initialize
 from auth.login import LoginWindow
+from utils.mailer import charger_config_mail
 
 # Vues
 from components.sidebar import Sidebar
@@ -53,22 +54,22 @@ class MainWindow(ctk.CTk):
 
         if role == "admin":
             menu = [
-                ("Dashboard", "🏠", self._show_admin_home),
-                ("Boisson&Prix",  "🍾", self._show_boissons),
-                ("Employés",         "👥", self._show_employes),
-                ("Graphiques",       "📈", self._show_graphiques),
-                ("Exports",  "💾", self._show_outils),
-                ("Imprimante",       "🖨", self._show_imprimante),
-                ("Config Mail",      "📧", self._show_config_mail),
-                ("Mon profil",       "🔑", self._show_profil),
+                ("Dashboard",   "🏠", self._show_admin_home),
+                ("Boisson&Prix","🍾", self._show_boissons),
+                ("Employés",    "👥", self._show_employes),
+                ("Graphiques",  "📈", self._show_graphiques),
+                ("Exports",     "💾", self._show_outils),
+                ("Imprimante",  "🖨", self._show_imprimante),
+                ("Config Mail", "📧", self._show_config_mail),
+                ("Mon profil",  "🔑", self._show_profil),
             ]
         elif role == "caissier":
             menu = [
-                ("Accueil",          "🏠", self._show_caissier_home),
-                ("Saisie ticket", "🧾", self._show_tickets),
-                ("Rapports", "📊", self._show_rapports),
-                ("Graphiques",       "📈", self._show_graphiques),
-                ("Mon profil",       "🔑", self._show_profil),
+                ("Accueil",      "🏠", self._show_caissier_home),
+                ("Saisie ticket","🧾", self._show_tickets),
+                ("Rapports",     "📊", self._show_rapports),
+                ("Graphiques",   "📈", self._show_graphiques),
+                ("Mon profil",   "🔑", self._show_profil),
             ]
         else:  # serveur
             menu = [
@@ -171,22 +172,19 @@ class MainWindow(ctk.CTk):
         def _do():
             xlsx_path = None
             try:
-                # Générer le rapport Excel du jour
                 mois = date.today().strftime("%Y-%m")
                 tmp  = tempfile.mkdtemp()
                 xlsx_path = os.path.join(tmp, f"rapport_journalier_{date.today()}.xlsx")
-                from utils.export_excel import exporter_rapport_mensuel
-                exporter_rapport_mensuel(db, mois, xlsx_path)
+                from utils.export_excel import exporter_rapport_journalier
+                exporter_rapport_journalier(db, mois, xlsx_path)
             except Exception as e:
                 print(f"[MAIL] Erreur génération Excel : {e}")
 
-            # Envoi mail (silencieux, peu importe si Excel a échoué)
             envoyer_rapport_journalier(db, caissier_nom, xlsx_path)
 
         if MAIL_CONFIG.get("actif"):
             t = threading.Thread(target=_do, daemon=True)
             t.start()
-            # Laisser 3 secondes max pour l'envoi avant de fermer
             t.join(timeout=3)
 
         self.destroy()
@@ -204,6 +202,9 @@ def start():
 
 if __name__ == "__main__":
     print(f"[{APP_NAME}] Initialisation de la base de données...")
+    if db.connect():
+        db.init_tables()           # ← Crée la table parametres si absente
+        charger_config_mail(db)    # ← Charge la config mail depuis la BdD
     initialize()
     print(f"[{APP_NAME}] Lancement de l'interface...")
     start()
