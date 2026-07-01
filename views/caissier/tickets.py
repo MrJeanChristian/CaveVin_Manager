@@ -121,18 +121,18 @@ class TicketsView(ctk.CTkFrame):
         self.e_notes.pack(fill="x", padx=14, pady=(2, 14))
 
         # Boutons finaux
-        ctk.CTkButton(scroll_left, text="📂 Ouvrir (payer plus tard)", height=44,
-                      fg_color=C["bg_dark"], hover_color=C["bg_sidebar"],
+        ctk.CTkButton(scroll_left, text="📂 Enregistrer (payer plus tard)", height=44,
+                      fg_color=C["success"], hover_color="#1E8449",
                       border_width=1, border_color=C["accent"],
-                      text_color=C["gold"], font=("Helvetica", 12, "bold"),
+                      text_color=C["white"], font=("Helvetica", 12, "bold"),
                       command=lambda: self._soumettre(cloturer=False)).pack(
                       fill="x", padx=14, pady=(0, 6))
 
-        ctk.CTkButton(scroll_left, text="✅ Encaisser maintenant", height=44,
-                      fg_color=C["success"], hover_color="#1E8449",
-                      text_color=C["white"], font=("Helvetica", 12, "bold"),
-                      command=lambda: self._soumettre(cloturer=True)).pack(
-                      fill="x", padx=14, pady=(0, 6))
+        # ctk.CTkButton(scroll_left, text="✅ Encaisser maintenant", height=44,
+        #               fg_color=C["success"], hover_color="#1E8449",
+        #               text_color=C["white"], font=("Helvetica", 12, "bold"),
+        #               command=lambda: self._soumettre(cloturer=True)).pack(
+        #               fill="x", padx=14, pady=(0, 6))
 
         ctk.CTkButton(scroll_left, text="✖ Annuler / Nouveau", height=34,
                       fg_color="transparent", hover_color=C["bg_sidebar"],

@@ -57,9 +57,10 @@ class MainWindow(ctk.CTk):
                 ("Dashboard",   "🏠", self._show_admin_home),
                 ("Boisson&Prix","🍾", self._show_boissons),
                 ("Employés",    "👥", self._show_employes),
+                ("Saisie ticket", "🧾", self._show_tickets),
                 ("Graphiques",  "📈", self._show_graphiques),
                 ("Exports",     "💾", self._show_outils),
-                ("Imprimante",  "🖨", self._show_imprimante),
+                # ("Imprimante",  "🖨", self._show_imprimante),
                 ("Config Mail", "📧", self._show_config_mail),
                 ("Mon profil",  "🔑", self._show_profil),
             ]
@@ -77,7 +78,6 @@ class MainWindow(ctk.CTk):
                 ("Mon profil", "🔑", self._show_profil),
             ]
 
-        # IMPORTANT : self.content avant Sidebar
         self.content = ctk.CTkFrame(self, fg_color=COLORS["bg_dark"], corner_radius=0)
 
         self.sidebar = Sidebar(self, self.user, menu, self._logout)
@@ -87,7 +87,6 @@ class MainWindow(ctk.CTk):
 
         self.content.pack(side="left", fill="both", expand=True)
 
-        # Intercepter la fermeture par la croix
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _on_close(self):
@@ -161,31 +160,48 @@ class MainWindow(ctk.CTk):
             start()
 
     def _envoyer_rapport_et_quitter(self, action="logout"):
-        """Génère le rapport Excel du jour et l'envoie par mail en arrière-plan."""
+        """
+        Génère DEUX fichiers Excel en pièce jointe :
+          1. Rapport journalier  (ventes du jour uniquement)
+          2. Rapport mensuel     (cumul du mois en cours)
+        Puis envoie le tout par mail en arrière-plan.
+        """
         import threading, os, tempfile
         from datetime import date
         from utils.mailer import envoyer_rapport_journalier, MAIL_CONFIG
+        from utils.export_excel import (exporter_rapport_journalier,
+                                        exporter_rapport_mensuel)
         from database.db import db
 
         caissier_nom = f"{self.user['prenom']} {self.user['nom']}"
+        aujourd_hui  = date.today()
+        jour_str     = str(aujourd_hui)           # "YYYY-MM-DD"
+        mois_str     = aujourd_hui.strftime("%Y-%m")  # "YYYY-MM"
 
         def _do():
-            xlsx_path = None
-            try:
-                mois = date.today().strftime("%Y-%m")
-                tmp  = tempfile.mkdtemp()
-                xlsx_path = os.path.join(tmp, f"rapport_journalier_{date.today()}.xlsx")
-                from utils.export_excel import exporter_rapport_journalier
-                exporter_rapport_journalier(db, mois, xlsx_path)
-            except Exception as e:
-                print(f"[MAIL] Erreur génération Excel : {e}")
+            tmp = tempfile.mkdtemp()
+            xlsx_journalier = None
+            xlsx_mensuel    = None
 
-            envoyer_rapport_journalier(db, caissier_nom, xlsx_path)
+            # ── 1. Rapport journalier du jour ──────────────────────────
+            try:
+                xlsx_journalier = os.path.join(
+                    tmp, f"rapport_journalier_{jour_str}.xlsx")
+                exporter_rapport_journalier(db, jour_str, xlsx_journalier)
+                print(f"[MAIL] Excel journalier généré : {xlsx_journalier}")
+            except Exception as e:
+                print(f"[MAIL] Erreur Excel journalier : {e}")
+
+            # ── 2. Envoi mail avec la pièce jointe ─────────────
+            envoyer_rapport_journalier(
+                db, caissier_nom,
+                xlsx_path=xlsx_journalier,
+            )
 
         if MAIL_CONFIG.get("actif"):
             t = threading.Thread(target=_do, daemon=True)
             t.start()
-            t.join(timeout=3)
+            t.join(timeout=5)   # 5s max avant de fermer
 
         self.destroy()
         if action == "logout":
@@ -203,8 +219,10 @@ def start():
 if __name__ == "__main__":
     print(f"[{APP_NAME}] Initialisation de la base de données...")
     if db.connect():
-        db.init_tables()           # ← Crée la table parametres si absente
-        charger_config_mail(db)    # ← Charge la config mail depuis la BdD
+        db.init_tables()        # Crée la table parametres si absente
+        charger_config_mail(db) # Charge la config mail depuis la BdD
     initialize()
     print(f"[{APP_NAME}] Lancement de l'interface...")
     start()
+
+

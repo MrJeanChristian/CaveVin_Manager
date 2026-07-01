@@ -56,41 +56,49 @@ def _col_width(ws, col, width):
 def exporter_rapport_mensuel(db, mois: str, output_path: str = None) -> str:
     """
     Génère un fichier Excel du rapport mensuel.
-
     mois        : "YYYY-MM"
     output_path : chemin de sortie (auto si None)
     Retourne le chemin du fichier généré.
     """
+    import calendar
+    from datetime import date
+
     if output_path is None:
         export_dir  = os.path.join(os.path.expanduser("~"), "CaveVin_Exports")
         os.makedirs(export_dir, exist_ok=True)
         output_path = os.path.join(export_dir, f"rapport_{mois}.xlsx")
 
-    wb = Workbook()
-    wb.remove(wb.active)  # Supprimer la feuille vide par défaut
+    # Calcul des bornes du mois : debut = "YYYY-MM-01", fin = "YYYY-MM-31"
+    annee, num_mois = int(mois.split("-")[0]), int(mois.split("-")[1])
+    dernier_jour    = calendar.monthrange(annee, num_mois)[1]
+    date_debut      = f"{mois}-01"
+    date_fin        = f"{mois}-{dernier_jour:02d}"
 
-    _sheet_resume(wb, db, mois)
-    _sheet_ventes(wb, db, mois)
-    _sheet_boissons(wb, db, mois)
-    _sheet_manquants(wb, db, mois)
-    _sheet_deductions(wb, db, mois)
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    _sheet_resume_v2(wb, db, mois, date_debut, date_fin)
+    _sheet_ventes_v2(wb, db, mois, date_debut, date_fin)
+    _sheet_boissons_v2(wb, db, mois, date_debut, date_fin)
+    _sheet_manquants_v2(wb, db, mois, date_debut, date_fin)
+    _sheet_deductions(wb, db, mois)   # déductions gardent le filtre par mois texte
 
     wb.save(output_path)
+    print(f"[EXCEL] Rapport mensuel généré : {output_path}")
     return output_path
 
 
-# ---- Feuille 1 : Résumé ----
-def _sheet_resume(wb, db, mois):
+# ---- Feuille 1 : Résumé (version corrigée avec BETWEEN) ----
+def _sheet_resume_v2(wb, db, mois, date_debut, date_fin):
     ws = wb.create_sheet("Resume")
     ws.sheet_view.showGridLines = False
 
-    # Titre principal
     ws.merge_cells("A1:F1")
     c = ws["A1"]
-    c.value       = f"RAPPORT MENSUEL — {mois}"
-    c.font        = _font(bold=True, size=16, color=C_OR)
-    c.fill        = _fill(C_DARK)
-    c.alignment   = _center()
+    c.value     = f"RAPPORT MENSUEL — {mois}"
+    c.font      = _font(bold=True, size=16, color=C_OR)
+    c.fill      = _fill(C_DARK)
+    c.alignment = _center()
     ws.row_dimensions[1].height = 36
 
     ws.merge_cells("A2:F2")
@@ -100,34 +108,46 @@ def _sheet_resume(wb, db, mois):
     c.fill      = _fill(C_DARK)
     c.alignment = _center()
 
-    # KPIs
+    # ── Requêtes avec BETWEEN pour éviter tout problème de DATE_FORMAT ──
     total_ventes = db.fetchone(
-        "SELECT COALESCE(SUM(total),0) AS v FROM tickets WHERE DATE_FORMAT(date_vente,'%%Y-%%m')=%s AND statut='valide'",
-        (mois,)) or {"v": 0}
+        "SELECT COALESCE(SUM(total),0) AS v FROM tickets "
+        "WHERE date_vente BETWEEN %s AND %s AND statut='valide'",
+        (date_debut, date_fin)
+    ) or {"v": 0}
+
     nb_tickets = db.fetchone(
-        "SELECT COUNT(*) AS v FROM tickets WHERE DATE_FORMAT(date_vente,'%%Y-%%m')=%s AND statut='valide'",
-        (mois,)) or {"v": 0}
+        "SELECT COUNT(*) AS v FROM tickets "
+        "WHERE date_vente BETWEEN %s AND %s AND statut='valide'",
+        (date_debut, date_fin)
+    ) or {"v": 0}
+
     total_manquants = db.fetchone(
-        "SELECT COALESCE(SUM(montant),0) AS v FROM manquants WHERE DATE_FORMAT(date_manquant,'%%Y-%%m')=%s",
-        (mois,)) or {"v": 0}
+        "SELECT COALESCE(SUM(montant),0) AS v FROM manquants "
+        "WHERE date_manquant BETWEEN %s AND %s",
+        (date_debut, date_fin)
+    ) or {"v": 0}
+
     total_deductions = db.fetchone(
         "SELECT COALESCE(SUM(montant),0) AS v FROM deductions WHERE mois=%s",
-        (mois,)) or {"v": 0}
+        (mois,)
+    ) or {"v": 0}
+
     cout = db.fetchone("""
         SELECT COALESCE(SUM(tl.quantite * b.prix_achat),0) AS v
         FROM ticket_lignes tl
-        JOIN boissons b ON b.id=tl.boisson_id
-        JOIN tickets t  ON t.id=tl.ticket_id
-        WHERE DATE_FORMAT(t.date_vente,'%%Y-%%m')=%s AND t.statut='valide'
-    """, (mois,)) or {"v": 0}
+        JOIN boissons b ON b.id = tl.boisson_id
+        JOIN tickets t  ON t.id = tl.ticket_id
+        WHERE t.date_vente BETWEEN %s AND %s AND t.statut='valide'
+    """, (date_debut, date_fin)) or {"v": 0}
+
     benefice = float(total_ventes["v"]) - float(cout["v"])
 
     kpis = [
-        ("Chiffre d'affaires", float(total_ventes["v"]), "FCFA", C_OR),
-        ("Nombre de tickets",  int(nb_tickets["v"]),     "",     C_TEXT),
-        ("Bénéfice net",       benefice,                 "FCFA", C_VERT),
-        ("Total manquants",    float(total_manquants["v"]),"FCFA",C_ROUGE_CLR),
-        ("Déductions salaires",float(total_deductions["v"]),"FCFA",C_ROUGE_CLR),
+        ("Chiffre d'affaires",  float(total_ventes["v"]),    "FCFA", C_OR),
+        ("Nombre de tickets",   int(nb_tickets["v"]),         "",    C_TEXT),
+        ("Bénéfice net",        benefice,                     "FCFA", C_VERT),
+        ("Total manquants",     float(total_manquants["v"]),  "FCFA", C_ROUGE_CLR),
+        ("Déductions salaires", float(total_deductions["v"]), "FCFA", C_ROUGE_CLR),
     ]
 
     ws.row_dimensions[3].height = 14
@@ -141,7 +161,6 @@ def _sheet_resume(wb, db, mois):
         lbl.fill      = _fill(C_HEADER_BG)
         lbl.alignment = _left()
         lbl.border    = _border()
-
         val = ws[f"D{row}"]
         disp = f"{valeur:,.0f} {unite}".strip() if isinstance(valeur, float) else f"{valeur} {unite}".strip()
         val.value     = disp
@@ -152,13 +171,12 @@ def _sheet_resume(wb, db, mois):
         ws.row_dimensions[row].height = 26
         row += 1
 
-    # Colonnes
     for col, w in [(1,28),(2,12),(3,12),(4,18),(5,12),(6,12)]:
         _col_width(ws, col, w)
 
 
-# ---- Feuille 2 : Ventes détaillées ----
-def _sheet_ventes(wb, db, mois):
+# ---- Feuille 2 : Ventes détaillées (version corrigée) ----
+def _sheet_ventes_v2(wb, db, mois, date_debut, date_fin):
     ws = wb.create_sheet("Ventes")
     ws.sheet_view.showGridLines = False
 
@@ -184,10 +202,10 @@ def _sheet_ventes(wb, db, mois):
         SELECT t.numero, CONCAT(u.prenom,' ',u.nom) AS serveur,
                t.date_vente, t.total, t.montant_recu, t.statut
         FROM tickets t
-        LEFT JOIN utilisateurs u ON u.id=t.serveur_id
-        WHERE DATE_FORMAT(t.date_vente,'%%Y-%%m')=%s
+        LEFT JOIN utilisateurs u ON u.id = t.serveur_id
+        WHERE t.date_vente BETWEEN %s AND %s
         ORDER BY t.date_vente, t.id
-    """, (mois,))
+    """, (date_debut, date_fin))
 
     for i, r in enumerate(tickets):
         row += 1
@@ -195,21 +213,20 @@ def _sheet_ventes(wb, db, mois):
         mq  = float(r["total"]) - float(r["montant_recu"])
         vals = [r["numero"], r["serveur"] or "—", str(r["date_vente"]),
                 float(r["total"]), float(r["montant_recu"]),
-                mq if mq > 0 else 0, r["statut"].replace("_"," ").title()]
+                mq if mq > 0 else 0,
+                r["statut"].replace("_"," ").title()]
         for col, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=col, value=v)
             c.fill   = _fill(bg)
             c.border = _border()
-            c.font   = _font(size=10, color=C_TEXT if col != 6 else (C_ROUGE_CLR if mq > 0 else C_GRIS))
-            if col in (4, 5, 6):
-                c.alignment = _right()
-                if isinstance(v, float):
-                    c.number_format = '#,##0'
-            else:
-                c.alignment = _left()
+            c.font   = _font(size=10,
+                             color=C_ROUGE_CLR if col == 6 and mq > 0 else C_TEXT)
+            c.alignment = _right() if col in (4,5,6) else _left()
+            if col in (4,5,6) and isinstance(v, float):
+                c.number_format = '#,##0'
         ws.row_dimensions[row].height = 18
 
-    widths = [18, 20, 12, 14, 14, 12, 12]
+    widths = [18,20,12,14,14,12,12]
     for col, w in enumerate(widths, 1):
         _col_width(ws, col, w)
 
@@ -217,28 +234,28 @@ def _sheet_ventes(wb, db, mois):
     row += 1
     ws.merge_cells(f"A{row}:C{row}")
     c = ws[f"A{row}"]
-    c.value = "TOTAL"
-    c.font  = _font(bold=True, size=11, color=C_OR)
-    c.fill  = _fill(C_HEADER_BG)
+    c.value     = "TOTAL"
+    c.font      = _font(bold=True, size=11, color=C_OR)
+    c.fill      = _fill(C_HEADER_BG)
     c.alignment = _right()
     total_sum = sum(float(r["total"]) for r in tickets)
     c2 = ws.cell(row=row, column=4, value=total_sum)
-    c2.font   = _font(bold=True, size=11, color=C_OR)
-    c2.fill   = _fill(C_HEADER_BG)
+    c2.font          = _font(bold=True, size=11, color=C_OR)
+    c2.fill          = _fill(C_HEADER_BG)
     c2.number_format = '#,##0'
-    c2.alignment = _right()
+    c2.alignment     = _right()
 
 
-# ---- Feuille 3 : Boissons vendues ----
-def _sheet_boissons(wb, db, mois):
+# ---- Feuille 3 : Boissons vendues (version corrigée) ----
+def _sheet_boissons_v2(wb, db, mois, date_debut, date_fin):
     ws = wb.create_sheet("Boissons")
     ws.sheet_view.showGridLines = False
 
     ws.merge_cells("A1:E1")
     c = ws["A1"]
-    c.value = f"Boissons vendues — {mois}"
-    c.font  = _font(bold=True, size=14, color=C_OR)
-    c.fill  = _fill(C_DARK)
+    c.value     = f"Boissons vendues — {mois}"
+    c.font      = _font(bold=True, size=14, color=C_OR)
+    c.fill      = _fill(C_DARK)
     c.alignment = _center()
     ws.row_dimensions[1].height = 30
 
@@ -254,39 +271,36 @@ def _sheet_boissons(wb, db, mois):
 
     rows_data = db.fetchall("""
         SELECT b.nom, b.categorie,
-               SUM(tl.quantite) AS qte,
-               SUM(tl.sous_total) AS ca,
-               SUM(tl.quantite * (b.prix_vente - b.prix_achat)) AS benefice
+               SUM(tl.quantite)                              AS qte,
+               SUM(tl.sous_total)                            AS ca,
+               SUM(tl.quantite*(b.prix_vente-b.prix_achat)) AS benefice
         FROM ticket_lignes tl
-        JOIN boissons b  ON b.id=tl.boisson_id
-        JOIN tickets t   ON t.id=tl.ticket_id
-        WHERE DATE_FORMAT(t.date_vente,'%%Y-%%m')=%s AND t.statut='valide'
+        JOIN boissons b ON b.id = tl.boisson_id
+        JOIN tickets t  ON t.id = tl.ticket_id
+        WHERE t.date_vente BETWEEN %s AND %s AND t.statut='valide'
         GROUP BY b.id, b.nom, b.categorie
         ORDER BY ca DESC
-    """, (mois,))
+    """, (date_debut, date_fin))
 
     for i, r in enumerate(rows_data):
         row += 1
-        bg  = C_CARD if i % 2 == 0 else "FF251010"
-        vals= [r["nom"], r["categorie"] or "—", int(r["qte"]),
-               float(r["ca"]), float(r["benefice"] or 0)]
+        bg   = C_CARD if i % 2 == 0 else "FF251010"
+        vals = [r["nom"], r["categorie"] or "—", int(r["qte"]),
+                float(r["ca"]), float(r["benefice"] or 0)]
         for col, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=col, value=v)
-            c.fill   = _fill(bg)
-            c.border = _border()
-            c.font   = _font(size=10, color=C_TEXT)
-            if col in (3, 4, 5):
-                c.alignment = _right()
-                if isinstance(v, float): c.number_format = '#,##0'
-            else:
-                c.alignment = _left()
+            c.fill      = _fill(bg)
+            c.border    = _border()
+            c.font      = _font(size=10, color=C_TEXT)
+            c.alignment = _right() if col in (3,4,5) else _left()
+            if col in (3,4,5) and isinstance(v, float):
+                c.number_format = '#,##0'
         ws.row_dimensions[row].height = 18
 
-    widths = [28, 14, 12, 14, 16]
+    widths = [28,14,12,14,16]
     for col, w in enumerate(widths, 1):
         _col_width(ws, col, w)
 
-    # Graphique barres
     if rows_data:
         chart = BarChart()
         chart.type        = "bar"
@@ -295,26 +309,23 @@ def _sheet_boissons(wb, db, mois):
         chart.style       = 10
         chart.width       = 18
         chart.height      = 10
-
-        data_ref = Reference(ws, min_col=4, min_row=2,
-                             max_row=2 + len(rows_data))
-        cats_ref = Reference(ws, min_col=1, min_row=3,
-                             max_row=2 + len(rows_data))
+        data_ref = Reference(ws, min_col=4, min_row=2, max_row=2+len(rows_data))
+        cats_ref = Reference(ws, min_col=1, min_row=3, max_row=2+len(rows_data))
         chart.add_data(data_ref, titles_from_data=True)
         chart.set_categories(cats_ref)
-        ws.add_chart(chart, f"G3")
+        ws.add_chart(chart, "G3")
 
 
-# ---- Feuille 4 : Manquants ----
-def _sheet_manquants(wb, db, mois):
+# ---- Feuille 4 : Manquants (version corrigée) ----
+def _sheet_manquants_v2(wb, db, mois, date_debut, date_fin):
     ws = wb.create_sheet("Manquants")
     ws.sheet_view.showGridLines = False
 
     ws.merge_cells("A1:E1")
     c = ws["A1"]
-    c.value = f"Manquants — {mois}"
-    c.font  = _font(bold=True, size=14, color=C_OR)
-    c.fill  = _fill(C_DARK)
+    c.value     = f"Manquants — {mois}"
+    c.font      = _font(bold=True, size=14, color=C_OR)
+    c.fill      = _fill(C_DARK)
     c.alignment = _center()
     ws.row_dimensions[1].height = 30
 
@@ -332,30 +343,30 @@ def _sheet_manquants(wb, db, mois):
         SELECT CONCAT(u.prenom,' ',u.nom) AS serveur, t.numero,
                m.montant, m.date_manquant, m.rembourse
         FROM manquants m
-        JOIN utilisateurs u ON u.id=m.serveur_id
-        LEFT JOIN tickets t ON t.id=m.ticket_id
-        WHERE DATE_FORMAT(m.date_manquant,'%%Y-%%m')=%s
+        JOIN utilisateurs u ON u.id = m.serveur_id
+        LEFT JOIN tickets t ON t.id = m.ticket_id
+        WHERE m.date_manquant BETWEEN %s AND %s
         ORDER BY m.date_manquant
-    """, (mois,))
+    """, (date_debut, date_fin))
 
     for i, r in enumerate(rows_data):
         row += 1
-        bg  = C_CARD if i % 2 == 0 else "FF251010"
-        vals= [r["serveur"], r["numero"] or "—",
-               float(r["montant"]), str(r["date_manquant"]),
-               "Oui" if r["rembourse"] else "Non"]
+        bg   = C_CARD if i % 2 == 0 else "FF251010"
+        vals = [r["serveur"], r["numero"] or "—",
+                float(r["montant"]), str(r["date_manquant"]),
+                "Oui" if r["rembourse"] else "Non"]
         for col, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=col, value=v)
-            c.fill   = _fill(bg)
-            c.border = _border()
+            c.fill      = _fill(bg)
+            c.border    = _border()
             tc = C_VERT if v == "Oui" else (C_ROUGE_CLR if v == "Non" else C_TEXT)
-            c.font   = _font(size=10, color=tc)
+            c.font      = _font(size=10, color=tc)
             c.alignment = _right() if col == 3 else _left()
             if col == 3 and isinstance(v, float):
                 c.number_format = '#,##0'
         ws.row_dimensions[row].height = 18
 
-    widths = [22, 18, 14, 14, 12]
+    widths = [22,18,14,14,12]
     for col, w in enumerate(widths, 1):
         _col_width(ws, col, w)
 
